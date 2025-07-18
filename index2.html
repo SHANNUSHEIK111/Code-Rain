@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Catch the Code Bits!</title>
+  <style>
+    .game-container {
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 20px;
+    }
+    .instructions {
+      width: 250px;
+      background: #fffbe7;
+      border: 2px solid #f0c000;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 14px;
+      line-height: 1.5;
+      box-shadow: 2px 2px 6px rgba(0,0,0,0.1);
+    }
+    .bit {
+      position: absolute;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-weight: bold;
+      cursor: pointer;
+      color: white;
+      z-index: 2;
+      box-shadow: 0 0 6px #000;
+    }
+    .game-over-banner {
+      position: absolute;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 32px;
+      font-weight: bold;
+      color: red;
+      display: none;
+      z-index: 100;
+    }
+  </style>
+  <script>
+    const validBits = ['AI', 'if()', '{}', 'ML', 'for()', 'true', '0x1010'];
+    const bugBits = ['?!', '404', 'BUG', 'null;', 'while(;)', '<>'];
+    const dangerBits = ['VIRUS', 'ERROR', 'CRASH', 'MALWARE'];
+
+    let score = 0, timeLeft = 60;
+    let timer, spawnInterval, gameOver = false, isPaused = false;
+    let name = "";
+
+    function startGame() {
+      name = document.getElementById("playerName").value.trim();
+      if (name === "") return alert("Enter your name!");
+
+      score = 0;
+      timeLeft = 60;
+      gameOver = false;
+      isPaused = false;
+      updateScore();
+      document.getElementById("timer").innerText = "⏱️ Time Left: 60s";
+      document.getElementById("startBtn").style.display = "none";
+      document.getElementById("pauseBtn").style.display = "inline";
+      document.getElementById("restartBtn").style.display = "none";
+      document.getElementById("gameOverText").style.display = "none";
+      document.getElementById("result").innerHTML = "";
+      clearBoard();
+
+      spawnCodeBit();
+      spawnInterval = setInterval(() => { if (!isPaused) spawnCodeBit(); }, 1300);
+      timer = setInterval(() => {
+        if (!isPaused) {
+          timeLeft--;
+          document.getElementById("timer").innerText = `⏱️ Time Left: ${timeLeft}s`;
+          if (timeLeft <= 0 || gameOver) endGame();
+        }
+      }, 1000);
+    }
+
+    function pauseGame() {
+      isPaused = !isPaused;
+      document.getElementById("pauseBtn").innerText = isPaused ? "▶️ Resume" : "⏸️ Pause";
+    }
+
+    function spawnCodeBit() {
+      const playArea = document.getElementById("playArea");
+      const rand = Math.random();
+      let bitType, text;
+
+      if (rand < 0.6) {
+        bitType = "valid"; text = validBits[Math.floor(Math.random() * validBits.length)];
+      } else if (rand < 0.85) {
+        bitType = "bug"; text = bugBits[Math.floor(Math.random() * bugBits.length)];
+      } else {
+        bitType = "danger"; text = dangerBits[Math.floor(Math.random() * dangerBits.length)];
+      }
+
+      const bit = document.createElement("div");
+      bit.innerText = text;
+      bit.className = "bit";
+      bit.style.left = Math.random() * (playArea.offsetWidth - 60) + "px";
+      bit.style.top = "0px";
+      bit.style.backgroundColor =
+        bitType === "valid" ? "#28a745" :
+        bitType === "bug" ? "#dc3545" : "#000000";
+
+      bit.onclick = () => {
+        if (bitType === "valid") score++;
+        else if (bitType === "bug") score = Math.max(0, score - 1);
+        else {
+          gameOver = true;
+          score = 0;
+          alert("💣 You clicked a DANGER code! Game Over.");
+        }
+        updateScore();
+        bit.remove();
+      };
+
+      playArea.appendChild(bit);
+
+      let topPosition = 0;
+      const fallSpeed = 6; // Slower than before
+      const interval = setInterval(() => {
+        if (bit.offsetTop >= playArea.offsetHeight - 40 || gameOver || isPaused) {
+          clearInterval(interval);
+          if (!isPaused) bit.remove();
+        } else {
+          topPosition += fallSpeed;
+          bit.style.top = topPosition + "px";
+        }
+      }, 20);
+    }
+
+    function clearBoard() {
+      document.getElementById("playArea").innerHTML = '<div id="gameOverText" class="game-over-banner">GAME OVER!</div>';
+    }
+
+    function updateScore() {
+      document.getElementById("score").innerText = `🧮 Score: ${score}`;
+    }
+
+    function endGame() {
+      clearInterval(timer);
+      clearInterval(spawnInterval);
+      document.getElementById("result").innerHTML =
+        `<h2>Game Over!</h2><p>Your score: <strong>${score}</strong></p>`;
+      updateLeaderboard(name, score);
+      document.getElementById("restartBtn").style.display = "inline";
+      document.getElementById("pauseBtn").style.display = "none";
+      document.getElementById("gameOverText").style.display = "block";
+    }
+
+    function updateLeaderboard(name, finalScore) {
+      let leaderboard = JSON.parse(localStorage.getItem("codeLeaderboard")) || [];
+      leaderboard.push({ name, score: finalScore });
+      leaderboard.sort((a, b) => b.score - a.score);
+      leaderboard = leaderboard.slice(0, 3);
+      localStorage.setItem("codeLeaderboard", JSON.stringify(leaderboard));
+      showLeaderboard();
+    }
+
+    function showLeaderboard() {
+      let leaderboard = JSON.parse(localStorage.getItem("codeLeaderboard")) || [];
+      let html = "<div class='board'><h3>🏆 Leaderboard</h3><ol>";
+      for (let entry of leaderboard) {
+        html += `<li><strong>${entry.name}</strong> — ${entry.score} pts</li>`;
+      }
+      html += "</ol></div>";
+      document.getElementById("leaderboard").innerHTML = html;
+    }
+
+    function restartGame() {
+      document.getElementById("startBtn").style.display = "inline";
+      document.getElementById("restartBtn").style.display = "none";
+      document.getElementById("result").innerHTML = "";
+      updateScore();
+      document.getElementById("timer").innerText = "⏱️ Time Left: 60s";
+      clearBoard();
+    }
+
+    window.onload = showLeaderboard;
+  </script>
+</head>
+<body style="font-family: 'Segoe UI', sans-serif; background: #f4fcff; padding: 20px;">
+
+  <h1 style="color: #0066cc;">💻 Catch the Code Bits!</h1>
+
+  <div style="margin-bottom: 10px;">
+    <label>👤 Name:</label>
+    <input type="text" id="playerName" placeholder="Enter your name" style="padding: 5px; border-radius: 6px;">
+    <button onclick="startGame()" id="startBtn" style="padding: 8px 18px; background-color: #28a745; color: white; border: none; border-radius: 8px;">▶️ Start</button>
+    <button onclick="pauseGame()" id="pauseBtn" style="padding: 8px 18px; background-color: #007bff; color: white; border: none; border-radius: 8px; display: none;">⏸️ Pause</button>
+    <button onclick="restartGame()" id="restartBtn" style="padding: 8px 18px; background-color: #ff6600; color: white; border: none; border-radius: 8px; display: none;">🔁 Restart</button>
+  </div>
+
+  <p id="timer" style="font-size: 1.2em;">⏱️ Time Left: 60s</p>
+  <p id="score" style="font-size: 1.2em;">🧮 Score: 0</p>
+
+  <div class="game-container">
+    <div class="instructions">
+      <h3>📘 How to Play</h3>
+      <ul>
+        <li>✅ Click <b>green bits</b> to gain points.</li>
+        <li>❌ Avoid <b>red bugs</b> — lose points.</li>
+        <li>💣 Don't click <b>black danger bits</b> like "VIRUS" — Game Over!</li>
+        <li>🎯 Try to score high in 60 seconds.</li>
+        <li>⏸ Pause/Resume anytime.</li>
+      </ul>
+    </div>
+
+    <div id="playArea" style="
+      width: 600px;
+      height: 400px;
+      border: 3px dashed #333;
+      background-color: #e6f2ff;
+      position: relative;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
+    ">
+      <div id="gameOverText" class="game-over-banner">GAME OVER!</div>
+    </div>
+  </div>
+
+  <div id="result" style="margin-top: 20px;"></div>
+  <div id="leaderboard" style="margin-top: 30px;"></div>
+
+</body>
+</html>
